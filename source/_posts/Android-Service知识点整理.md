@@ -99,9 +99,52 @@ tags: android-service
  }
  ```
  - ### AIDL
- > 此方式实现了进程通信
-   <font color=#0099ff>原理:
-   </font>
+   > 此方式实现了进程通信，用法类似IBinder，只是在实现上存在差异
+     <font color=#0099ff>原理:　新建TestAIDL.aidl文件后，IDE会生成配套的TestAIDL.java文件，其内部实现了类似IBinder的使用实现，同时通过BinderProxy实现进程间的通信</font>
+     [更多介绍](http://www.open-open.com/lib/view/open1469493649028.html)
+     #### 同一个应用内
+     ``` java
+      1. 使用android-studio，new 一个 AIDL，此过程还会同时生成配套的相关.java文件(自己建有点麻烦，还是交给android-studio吧)，其内容
+         interface TestAIDL {
+           /** 自动生成 */
+           void basicTypes(int anInt, long aLong, boolean aBoolean, float aFloat, double aDouble, String aString);
+           /** 自定义方法 */
+           int plus(int a, int b);
+           String toUpperCase(String str);
+        }
+      2. 在app->build->generated->source->aidl->debug->com->example->test->TestAIDL.java生成了TestAIDL.java文件
+         其中的内部内类Stub(public static abstract class Stub extends android.os.Binder implements com.sky.minetest.service.OneAIDLService{})用以实现IBinder的能力
+      3. 在ServiceConnection中得到TestAIDL的实例和方法,　即可调用完成通信
+         private ServiceConnection oneConnection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+                TestAIDL test = TestAIDL.Stub.asInterface(service);
+                int result = aidlService.plus(1, 2);
+                String str = aidlService.toUpperCase("abcde");
+            }
+          }
+     ```
+    > #### 不同应用
+      配置应用A的AndroidManifest.xml
+      ``` xml
+       <service  
+          android:name="com.example.test.Myservice"  
+          android:process=":remote" >  
+          <intent-filter>  
+              <action android:name="com.example.test.Myservice"/>  
+          </intent-filter>  
+       </service>
+      ```
+      > B应用的java调用
+      ```java
+        1. 按照应用A的报名和路径，把A中的AIDL文件拷贝到B应用中
+        2. 用隐式Intent方式启动A的Myservice
+           Intent intent = new Intent("com.example.test.Myservice");  
+           bindService(intent, connection, BIND_AUTO_CREATE);
+        3. 和同一应用内使用ServiceConnection调用AIDL的方式相同使用AIDL的方法
+        4. 完成通信
+      ```
+
 
 3. ## Service、Thread、Process
   - Service与Activity都运行在主线程(UI线程)，Thread.currentThread().getId() == 1
